@@ -86,7 +86,7 @@ final class OneDriveApi
 	{
 		checkAccessTokenExpired();
 		string url = itemByPathUrl ~ encodeComponent(path) ~ ":/view.changes";
-		url ~= "?select=id,name,eTag,cTag,deleted,file,folder,fileSystemInfo,parentReference";
+		url ~= "?select=id,name,eTag,cTag,deleted,file,folder,fileSystemInfo,parentReference,remoteItem";
 		if (statusToken) url ~= "&token=" ~ statusToken;
 		return get(url);
 	}
