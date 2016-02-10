@@ -22,6 +22,11 @@ private bool isItemDeleted(const ref JSONValue item)
 	return (("deleted" in item.object) !is null);
 }
 
+private bool isItemRemote(const ref JSONValue item)
+{
+        return (("remoteItem" in item.object) !is null);
+}
+
 private bool testCrc32(string path, const(char)[] crc32)
 {
 	if (crc32) {
