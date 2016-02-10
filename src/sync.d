@@ -90,12 +90,24 @@ final class SyncEngine
 		if (verbose) writeln("Applying differences ...");
 		try {
 			JSONValue changes;
-			do {
-                                auto sharedFolders = onedrive.getSharedFolders(statusToken);
-                                if (verbose) {
-                                    writeln("Remote shared folders: ", sharedFolders["value"].array);
-                                }
+                        // remote shared folders
+                        auto sharedFolders = onedrive.getSharedFolders(statusToken);
+                        foreach (sharedFolder; sharedFolders["value"].array) {
+                                do {
+                                        changes = onedrive.viewChangesById(sharedFolder["remoteItem"]["id"].str, statusToken);
+                                        if (verbose) {
+                                            writeln("Shared changes in ", sharedFolder["name"].str, ":\n", JSONValue(changes).toPrettyString());
+                                        }
+                                        // TODO: applyDifferences(changedItem)
+                                        statusToken = changes["@changes.token"].str;
+                                        onStatusToken(statusToken);
+                                } while (changes["@changes.hasMoreChanges"].type == JSON_TYPE.TRUE);
+                        }
+                        do { // user's folders
 				changes = onedrive.viewChangesByPath("/", statusToken);
+                                if (verbose) {
+                                        writeln("Local changes in /:\n", changes.toPrettyString());
+                                }
 				foreach (item; changes["value"].array) {
 					applyDifference(item);
 				}

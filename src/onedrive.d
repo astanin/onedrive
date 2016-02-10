@@ -36,6 +36,7 @@ final class OneDriveApi
 	private string refreshToken, accessToken;
 	private SysTime accessTokenExpiration;
 	private HTTP http;
+        private bool verbose;
 
 	void delegate(string) onRefreshToken; // called when a new refresh_token is received
 
@@ -43,6 +44,7 @@ final class OneDriveApi
 	{
 		this.clientId = cfg.get("client_id");
 		this.clientSecret = cfg.get("client_secret");
+                this.verbose = verbose;
 		http = HTTP();
 		//http.verbose = verbose;
 	}
@@ -101,6 +103,9 @@ final class OneDriveApi
                 JSONValue remoteItems[];
                 foreach (item; rootChildren["value"].array) {
                     if ("remoteItem" in item.object) {
+                        if (verbose) {
+                            writeln("Shared remote folder: ", item["id"].str, " ", item["name"].str);
+                        }
                         remoteItems ~= item;
                     }
                 }
