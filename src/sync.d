@@ -117,33 +117,36 @@ final class SyncEngine
                 auto sharedFolders = onedrive.getSharedFolders(statusToken);
                 foreach (sharedFolder; sharedFolders["value"].array) {
                         auto remoteId = sharedFolder["remoteItem"]["id"].str;
-                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok));
+                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok), true);
                 }
         }
 
-        private void applyDifferencesWhileHasMore(JSONValue delegate(const string statusToken) getChanges) {
+        private void applyDifferencesWhileHasMore(
+                        JSONValue delegate(const string statusToken) getChanges,
+                        bool isASharedFolder=false
+                        ) {
                 JSONValue changes;
                 do {
                         changes = getChanges(statusToken);
                         foreach (item; changes["value"].array) {
-                                applyDifference(item);
+                                applyDifference(item, isASharedFolder);
                         }
                         statusToken = changes["@changes.token"].str;
                         onStatusToken(statusToken);
                 } while (changes["@changes.hasMoreChanges"].type == JSON_TYPE.TRUE);
         }
 
-	private void applyDifference(JSONValue item)
+	private void applyDifference(JSONValue item, bool isASharedFolder=false)
 	{
 		string id = item["id"].str;
 		string name = item["name"].str;
 		string eTag = item["eTag"].str;
 		string parentId = item["parentReference"]["id"].str;
 
-		// HACK: recognize the root directory
-		if (name == "root" && parentId[$ - 1] == '0' && parentId[$ - 2] == '!') {
-			parentId = null;
-		}
+                // HACK: recognize the root directory
+                if (name == "root" && parentId[$ - 1] == '0' && parentId[$ - 2] == '!') {
+                        parentId = null;
+                }
 
 		if (verbose) writeln(id, " ", name);
 
@@ -169,11 +172,15 @@ final class SyncEngine
 
 		// compute the path of the item
 		string path;
-		if (parentId) {
+                if (isASharedFolder) {
+                        path = "./" ~ name;
+                } else if (parentId) {
 			path = itemdb.computePath(parentId) ~ "/" ~ name;
 		} else {
 			path = ".";
 		}
+
+                if (verbose) writeln("path = ", path);
 
 		ItemType type;
 		if (isItemDeleted(item)) {
@@ -251,12 +258,12 @@ final class SyncEngine
 	{
 		if (exists(path)) {
 			if (isItemSynced(item, path)) {
-				if (verbose) writeln("The item is already present");
+				if (verbose) writeln("The item ", path, " is already present");
 				// ensure the modified time is correct
 				setTimes(path, item.mtime, item.mtime);
 				return;
 			} else {
-				if (verbose) writeln("The local item is out of sync, renaming ...");
+				if (verbose) writeln("The local item ", path, " is out of sync, renaming ...");
 				safeRename(path);
 			}
 		}
