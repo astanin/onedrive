@@ -22,11 +22,6 @@ private bool isItemDeleted(const ref JSONValue item)
 	return (("deleted" in item.object) !is null);
 }
 
-private bool isItemRemote(const ref JSONValue item)
-{
-        return (("remoteItem" in item.object) !is null);
-}
-
 private bool testCrc32(string path, const(char)[] crc32)
 {
 	if (crc32) {
@@ -96,6 +91,10 @@ final class SyncEngine
 		try {
 			JSONValue changes;
 			do {
+                                auto sharedFolders = onedrive.getSharedFolders(statusToken);
+                                if (verbose) {
+                                    writeln("Remote shared folders: ", sharedFolders["value"].array);
+                                }
 				changes = onedrive.viewChangesByPath("/", statusToken);
 				foreach (item; changes["value"].array) {
 					applyDifference(item);

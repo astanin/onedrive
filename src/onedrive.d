@@ -86,10 +86,27 @@ final class OneDriveApi
 	{
 		checkAccessTokenExpired();
 		string url = itemByPathUrl ~ encodeComponent(path) ~ ":/view.changes";
-		url ~= "?select=id,name,eTag,cTag,deleted,file,folder,fileSystemInfo,parentReference,remoteItem";
+		url ~= "?select=id,name,eTag,cTag,deleted,file,folder,fileSystemInfo,parentReference";
 		if (statusToken) url ~= "&token=" ~ statusToken;
 		return get(url);
 	}
+
+        // https://dev.onedrive.com/misc/working-with-links.htm
+        JSONValue getSharedFolders(const(char)[] statusToken)
+        {
+		checkAccessTokenExpired();
+		string url = itemByPathUrl ~ encodeComponent("/") ~ ":/children?select=id,name,remoteItem";
+		if (statusToken) url ~= "&token=" ~ statusToken;
+		JSONValue rootChildren = get(url);
+                JSONValue remoteItems[];
+                foreach (item; rootChildren["value"].array) {
+                    if ("remoteItem" in item.object) {
+                        remoteItems ~= item;
+                    }
+                }
+                JSONValue r = ["value" : remoteItems];
+                return r;
+        }
 
 	// https://dev.onedrive.com/items/download.htm
 	void downloadById(const(char)[] id, string saveToPath)
