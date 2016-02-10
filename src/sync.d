@@ -107,35 +107,30 @@ final class SyncEngine
 
         // top-level items owned by the user
         private void applyDifferencesOwned() {
+                applyDifferencesWhileHasMore(sTok => onedrive.viewChangesByPath("/", sTok));
+        }
+
+        // remote shared folders which user has added to his/her drive
+        // https://dev.onedrive.com/misc/working-with-links.htm
+        private void applyDifferencesRemote() {
                 JSONValue changes;
-                do { // user's folders
-                        changes = onedrive.viewChangesByPath("/", statusToken);
-                        if (verbose) {
-                                writeln("Changes in /:\n", changes.toPrettyString());
-                        }
+                auto sharedFolders = onedrive.getSharedFolders(statusToken);
+                foreach (sharedFolder; sharedFolders["value"].array) {
+                        auto remoteId = sharedFolder["remoteItem"]["id"].str;
+                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok));
+                }
+        }
+
+        private void applyDifferencesWhileHasMore(JSONValue delegate(const string statusToken) getChanges) {
+                JSONValue changes;
+                do {
+                        changes = getChanges(statusToken);
                         foreach (item; changes["value"].array) {
                                 applyDifference(item);
                         }
                         statusToken = changes["@changes.token"].str;
                         onStatusToken(statusToken);
                 } while (changes["@changes.hasMoreChanges"].type == JSON_TYPE.TRUE);
-        }
-
-        // remote shared folders which user has added to his/her drive
-        private void applyDifferencesRemote() {
-                JSONValue changes;
-                auto sharedFolders = onedrive.getSharedFolders(statusToken);
-                foreach (sharedFolder; sharedFolders["value"].array) {
-                        do {
-                                changes = onedrive.viewChangesById(sharedFolder["remoteItem"]["id"].str, statusToken);
-                                if (verbose) {
-                                        writeln("Changes in remote ", sharedFolder["name"].str, ":\n", JSONValue(changes).toPrettyString());
-                                }
-                                // TODO: applyDifferences(changedItem)
-                                statusToken = changes["@changes.token"].str;
-                                onStatusToken(statusToken);
-                        } while (changes["@changes.hasMoreChanges"].type == JSON_TYPE.TRUE);
-                }
         }
 
 	private void applyDifference(JSONValue item)
