@@ -129,13 +129,14 @@ final class SyncEngine
 			parentId = null;
 		}
 
+		if (verbose) writeln(id, " ", name);
+
 		// skip unwanted items early
 		if (skippedItems.find(parentId).length != 0) {
 			skippedItems ~= id;
+                        if (verbose) writeln("Skipping the item.");
 			return;
 		}
-
-		if (verbose) writeln(id, " ", name);
 
 		// rename the local item if it is unsynced and there is a new version of it
 		Item oldItem;
