@@ -1,6 +1,7 @@
 import std.exception: ErrnoException;
 import std.algorithm, std.datetime, std.file, std.json, std.path, std.regex;
 import std.stdio, std.string;
+import std.array;
 import config, itemdb, onedrive, upload, util;
 
 private string uploadStateFileName = "resume_upload";
@@ -58,6 +59,8 @@ final class SyncEngine
 	private string[] skippedItems;
 	// list of items to delete after the changes has been downloaded
 	private string[] pathsToDelete;
+        // id of the root item
+        private string rootId;
 
 	void delegate(string) onStatusToken;
 
@@ -115,9 +118,17 @@ final class SyncEngine
         private void applyDifferencesRemote() {
                 JSONValue changes;
                 auto sharedFolders = onedrive.getSharedFolders(statusToken);
-                foreach (sharedFolder; sharedFolders["value"].array) {
-                        auto remoteId = sharedFolder["remoteItem"]["id"].str;
-                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok), true);
+                if (verbose) writeln("sharedFolders = ", sharedFolders);
+                string[] topLevelSharedIds;
+                foreach (d; sharedFolders["value"].array) {
+                    topLevelSharedIds ~= d["id"].str;
+                }
+                if (verbose) writeln("topLevelSharedIds = ", topLevelSharedIds);
+                foreach (d; sharedFolders["value"].array) {
+                        string remoteId = d["remoteItem"]["id"].str;
+                        bool isASharedFolder = !find(topLevelSharedIds, remoteId).empty();
+                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok),
+                                                     isASharedFolder);
                 }
         }
 
@@ -146,9 +157,16 @@ final class SyncEngine
                 // HACK: recognize the root directory
                 if (name == "root" && parentId[$ - 1] == '0' && parentId[$ - 2] == '!') {
                         parentId = null;
+                        rootId = id;
                 }
 
-		if (verbose) writeln(id, " ", name);
+                // TODO: use local root's ID for top-level shared remote folders
+                if (isASharedFolder) {
+                        // FIXME: don't do it for nested folders!!!
+                        parentId = rootId;
+                }
+
+		if (verbose) writeln(id, " ", name, " parentId=", parentId);
 
 		// skip unwanted items early
 		if (skippedItems.find(parentId).length != 0) {
