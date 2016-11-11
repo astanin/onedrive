@@ -118,29 +118,27 @@ final class SyncEngine
         private void applyDifferencesRemote() {
                 JSONValue changes;
                 auto sharedFolders = onedrive.getSharedFolders(statusToken);
-                if (verbose) writeln("sharedFolders = ", sharedFolders);
                 string[] topLevelSharedIds;
                 foreach (d; sharedFolders["value"].array) {
-                    topLevelSharedIds ~= d["id"].str;
+                    topLevelSharedIds ~= d["remoteItem"]["id"].str;
                 }
-                if (verbose) writeln("topLevelSharedIds = ", topLevelSharedIds);
                 foreach (d; sharedFolders["value"].array) {
                         string remoteId = d["remoteItem"]["id"].str;
-                        bool isASharedFolder = !find(topLevelSharedIds, remoteId).empty();
-                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok),
-                                                     isASharedFolder);
+                        applyDifferencesWhileHasMore(sTok => onedrive.viewChangesById(remoteId, sTok))(topLevelSharedIds);
                 }
         }
 
         private void applyDifferencesWhileHasMore(
                         JSONValue delegate(const string statusToken) getChanges,
-                        bool isASharedFolder=false
+                        string topLevelSharedIds = []
                         ) {
                 JSONValue changes;
                 do {
                         changes = getChanges(statusToken);
                         foreach (item; changes["value"].array) {
-                                applyDifference(item, isASharedFolder);
+                                string itemId = item["id"].str;
+                                bool isASharedFolder = any!(id => id == itemId)(topLevelSharedIds);
+                                applyDifference(item, false);
                         }
                         statusToken = changes["@changes.token"].str;
                         onStatusToken(statusToken);
@@ -158,15 +156,15 @@ final class SyncEngine
                 if (name == "root" && parentId[$ - 1] == '0' && parentId[$ - 2] == '!') {
                         parentId = null;
                         rootId = id;
+                        if (verbose) writeln("rootId = ", rootId);
                 }
 
                 // TODO: use local root's ID for top-level shared remote folders
                 if (isASharedFolder) {
-                        // FIXME: don't do it for nested folders!!!
                         parentId = rootId;
                 }
 
-		if (verbose) writeln(id, " ", name, " parentId=", parentId);
+		if (verbose) writeln(id, " ", name, " parentId = ", parentId);
 
 		// skip unwanted items early
 		if (skippedItems.find(parentId).length != 0) {
